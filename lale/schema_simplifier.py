@@ -15,6 +15,7 @@
 import logging
 import itertools
 import jsonschema
+import jsonsubschema
 
 from .schema_ranges import SchemaRange
 
@@ -499,6 +500,42 @@ def simplifyAll(schemas:List[Schema], floatAny:bool)->Schema:
     else:
         return ret_all_schema
 
+def remove_anyOf_redundancies(schemas:List[Schema])->List[Schema]:
+    """Given a list of schemas (intended as disjunct / anyOfs)
+       Remove any that are a sub-schema of another, since they are redundant
+    """
+    ret:List[Schema] = []
+    s_len = len(schemas)
+    for i in range(s_len):
+        first:Schema = schemas[i]
+        for j in range(s_len):
+            if i == j:
+                continue
+            second:Schema = schemas[j]
+            try:
+                if jsonsubschema.isSubschema(first, second):
+                    isequal:bool = False
+                    if logger.isEnabledFor(logging.DEBUG):
+                        try:
+                            isequal = jsonsubschema.isSubschema(second, first)
+                        except Exception as e:
+                            logger.warning(f'problem checking the reverse check [|isSubschema({second}, {first})|]: {repr(e)}')
+                    comparison_str:str
+
+                    if isequal:
+                        comparison_str = "equal to"
+                    else:
+                        comparison_str = "a subschema of"
+                    logger.info(f"[schema_simplifier.remove_anyOf_redundancies]: removing {first}, since it is redundant, as it is {comparison_str} {second}")
+
+                    first = None
+                    break
+            except Exception as e:
+                logger.warning(f'problem checking [|isSubschema({first}, {second})|]: {repr(e)}')
+        if first is not None:
+            ret.append(first)
+    return ret
+
 def simplifyAny(schema:List[Schema], floatAny:bool)->Schema:
     s_any = schema
 
@@ -564,7 +601,10 @@ def simplifyAny(schema:List[Schema], floatAny:bool)->Schema:
         ret.append({'not':{'enum':list(s_not_enum)}})
     ret.extend(s_other)
     ret.extend(s_not_for_optimizer)
-    return makeAnyOf(ret)
+
+    reduced_ret = remove_anyOf_redundancies(ret)
+
+    return makeAnyOf(reduced_ret)
 
 def simplifyNot(schema:Schema, floatAny:bool)->Schema:
     return simplifyNot_(schema, floatAny, alreadySimplified=False)
