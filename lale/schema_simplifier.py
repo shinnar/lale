@@ -22,6 +22,7 @@ from typing import Any, Dict, Generic, List, Set, Iterable, Iterator, Optional, 
 from .schema_utils import Schema, getMinimum, getMaximum, isForOptimizer, makeAllOf, makeAnyOf, makeOneOf, forOptimizer, STrue, SFalse, is_true_schema, is_false_schema, is_lale_any_schema
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)
 
 # Goal: given a json schema, convert it into an equivalent json-schema
 # in "grouped-dnf" form:

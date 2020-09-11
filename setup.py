@@ -81,7 +81,7 @@ setup(
             'tensorflow>=1.13.1',
             'tensorflow_hub',
             'spacy',
-            'smac<=0.10.0',
+            'smac>=0.12.0',
             'numba==0.49.0',
             'aif360<=0.2.3',
             'torch>=1.0',
