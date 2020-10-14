@@ -475,7 +475,7 @@ def _operator_jsn_to_string(
 
 
 def json_to_string(schema: JSON_TYPE) -> str:
-    s1 = json.dumps(schema)
+    s1 = json.dumps(schema, default=lambda o: f"<<{type(o).__qualname__}>>")
     s2 = black.format_str(s1, mode=_black78).rstrip()
     return s2
 
