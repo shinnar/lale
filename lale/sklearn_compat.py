@@ -57,7 +57,7 @@ def make_sklearn_compat(op: Ops.Operator) -> "SKlearnCompatWrapper":
        SKlearnCompatWrapper.to_lale() can be called to recover the
        wrapped lale operator for future use
     """
-    return SKlearnCompatWrapper.make_wrapper(op)
+    return SKlearnCompatWrapper.make_wrapper(Ops.wrap_operator(op))
 
 
 def sklearn_compat_clone(impl: Any) -> Any:
