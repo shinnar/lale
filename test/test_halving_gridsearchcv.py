@@ -18,12 +18,8 @@ import warnings
 from lale.lib.lale import HalvingGridSearchCV
 from lale.lib.sklearn import (
     PCA,
-    KNeighborsClassifier,
     KNeighborsRegressor,
-    LinearRegression,
     LogisticRegression,
-    MinMaxScaler,
-    Normalizer,
     StandardScaler,
 )
 
@@ -49,32 +45,6 @@ class TestAutoConfigureClassification(unittest.TestCase):
             optimizer=HalvingGridSearchCV,
             cv=3,
             scoring="accuracy",
-            lale_num_samples=1,
-            lale_num_grids=1,
-        )
-        _ = best_pipeline.predict(self.X_test)
-        assert best_pipeline is not None
-
-
-class TestAutoConfigureRegression(unittest.TestCase):
-    def setUp(self):
-        from sklearn.datasets import load_boston
-        from sklearn.model_selection import train_test_split
-
-        X, y = load_boston(return_X_y=True)
-        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y)
-
-    def test_with_halving_gridsearchcv(self):
-        from lale.lib.lale import HalvingGridSearchCV
-
-        warnings.simplefilter("ignore")
-        planned_pipeline = (MinMaxScaler | Normalizer) >> LinearRegression
-        best_pipeline = planned_pipeline.auto_configure(
-            self.X_train,
-            self.y_train,
-            optimizer=HalvingGridSearchCV,
-            cv=3,
-            scoring="r2",
             lale_num_samples=1,
             lale_num_grids=1,
         )
@@ -147,27 +117,6 @@ class TestGridSearchCV(unittest.TestCase):
             )
             iris = load_iris()
             clf.fit(iris.data, iris.target)
-
-
-class TestKNeighborsClassifier(unittest.TestCase):
-    def setUp(self):
-        from sklearn.datasets import load_iris
-        from sklearn.model_selection import train_test_split
-
-        all_X, all_y = load_iris(return_X_y=True)
-        # 15 samples, small enough so folds are likely smaller than n_neighbors
-        self.train_X, self.test_X, self.train_y, self.test_y = train_test_split(
-            all_X, all_y, train_size=15, test_size=None, shuffle=True, random_state=42
-        )
-
-    def test_halving_gridsearch(self):
-        planned = KNeighborsClassifier
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            trained = planned.auto_configure(
-                self.train_X, self.train_y, optimizer=HalvingGridSearchCV, cv=3
-            )
-        _ = trained.predict(self.test_X)
 
 
 class TestKNeighborsRegressor(unittest.TestCase):
