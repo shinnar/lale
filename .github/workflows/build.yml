@@ -24,9 +24,10 @@ jobs:
         # This path is specific to Ubuntu
         path: ${{ env.pythonLocation }}
         # Look to see if there is a cache hit for the setup file
-        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}
+        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-.[full,test]
         restore-keys: |
-          ${{ runner.os }}-pip-
+          ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}
+          ${{ runner.os }}-pip-${{ env.pythonLocation }}
           ${{ runner.os }}-
     - name: Install numpy
       run: pip install -U numpy
@@ -111,9 +112,10 @@ jobs:
         # This path is specific to Ubuntu
         path: ${{ env.pythonLocation }}
         # Look to see if there is a cache hit for the setup file
-        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}
+        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{matrix.setup-target}}
         restore-keys: |
-          ${{ runner.os }}-pip-
+          ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}
+          ${{ runner.os }}-pip-${{ env.pythonLocation }}
           ${{ runner.os }}-
     - name: Install numpy
       run: pip install -U numpy
@@ -161,9 +163,10 @@ jobs:
         # This path is specific to Ubuntu
         path: ${{ env.pythonLocation }}
         # Look to see if there is a cache hit for the setup file
-        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}
+        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{matrix.setup-target}}
         restore-keys: |
-          ${{ runner.os }}-pip-
+          ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}
+          ${{ runner.os }}-pip-${{ env.pythonLocation }}
           ${{ runner.os }}-
     - name: Install packages
       run: sudo apt-get install graphviz swig
