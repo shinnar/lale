@@ -11,6 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [3.6, 3.7]
+        cache-target: ['fulltest']
 
     steps:
     - uses: actions/checkout@v2
@@ -24,7 +25,7 @@ jobs:
         # This path is specific to Ubuntu
         path: ${{ env.pythonLocation }}
         # Look to see if there is a cache hit for the setup file
-        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-.[full,test]
+        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ matrix.cache-target }}
         restore-keys: |
           ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}
           ${{ runner.os }}-pip-${{ env.pythonLocation }}
@@ -92,12 +93,15 @@ jobs:
         - test/test_snapml.py
         python-version: [3.6]
         setup-target: ['.[full,test]']
+        cache-target: ['fulltest']
         include:
         - test-case: test/test_autogen_lib.py
           python-version: 3.6
           setup-target: '.[test]'
+          cache-target: 'test24'
         - test-case: test/test_halving_gridsearchcv.py
           setup-target: '.[test]'
+          cache-target: 'test24'
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
@@ -112,7 +116,7 @@ jobs:
         # This path is specific to Ubuntu
         path: ${{ env.pythonLocation }}
         # Look to see if there is a cache hit for the setup file
-        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{matrix.setup-target}}
+        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{matrix.cache-target}}
         restore-keys: |
           ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}
           ${{ runner.os }}-pip-${{ env.pythonLocation }}
@@ -150,6 +154,7 @@ jobs:
         - talk_
         python-version: [3.6]
         setup-target: ['.[full,test]']
+        cache-target: ['fulltest']
         test-case: [test/test_notebooks.py]
     steps:
     - uses: actions/checkout@v2
@@ -163,7 +168,7 @@ jobs:
         # This path is specific to Ubuntu
         path: ${{ env.pythonLocation }}
         # Look to see if there is a cache hit for the setup file
-        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{matrix.setup-target}}
+        key: ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{matrix.cache-target}}
         restore-keys: |
           ${{ runner.os }}-pip-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}
           ${{ runner.os }}-pip-${{ env.pythonLocation }}
