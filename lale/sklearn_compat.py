@@ -378,8 +378,12 @@ class SKlearnCompatWrapper(object):
         self._base = WithoutGetParams.clone_wgp(op)
         self._old_params_for_clone = kwargs
 
-    def get_params_internal(self, out: Dict[str, Any]):
+    def get_params_internal(self, out: Dict[str, Any], deep: bool = True) -> None:
         out["__lale_wrapper_base"] = self._base
+        op = self.to_lale()
+        # TODO: this check should go away -- all operators should support this
+        if hasattr(op, "get_params"):
+            out.update(op.get_params())  # type: ignore
 
     def set_params_internal(self, **impl_params):
         self._base = impl_params["__lale_wrapper_base"]
@@ -430,15 +434,16 @@ class SKlearnCompatWrapper(object):
                 raise e
 
     def get_params(self, deep: bool = True) -> Dict[str, Any]:
-        # TODO: We currently ignore deep
         out: Dict[str, Any] = {}
         if self._old_params_for_clone is not None:
             # lie to clone to make it happy
+            # TODO: if we are supporting get_params more generally, we need to use inspection or something
+            # to make this safer
             params = self._old_params_for_clone
             self._old_params_for_clone = None
             return params
         else:
-            self.get_params_internal(out)
+            self.get_params_internal(out, deep=deep)
         return out
 
     def fit(self, X, y=None, **fit_params):

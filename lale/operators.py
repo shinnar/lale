@@ -1694,13 +1694,20 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
             Parameter names mapped to their values.
         """
         out = dict()
-        out["_name"] = self._name
-        out["_schemas"] = self._schemas
-        impl = self._impl_instance()
-        out["_impl"] = impl
-        if deep and hasattr(impl, "get_params"):
-            deep_items = impl.get_params().items()
-            out.update((self._name + "__" + k, val) for k, val in deep_items)
+        out.update(self._get_params_all())
+        if deep:
+            # if it is deep, then we get any nested higher order operators and call get_params on them (and nest them appropriately)
+            pass
+        return out
+
+        #        out["_name"] = self._name
+        #        out["_schemas"] = self._schemas
+        #        impl = self._impl_instance()
+        #        out["_impl"] = impl
+        #        out.update(self._get_params_all())
+        #        if deep and hasattr(impl, "get_params"):
+        #            deep_items = impl.get_params(deep=deep).items()
+        #            out.update((self._name + "__" + k, val) for k, val in deep_items)
         return out
 
     def hyperparams(self):
