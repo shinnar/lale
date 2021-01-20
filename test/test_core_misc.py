@@ -35,7 +35,7 @@ from lale.lib.sklearn import (
     OneHotEncoder,
     RandomForestClassifier,
 )
-from lale.sklearn_compat import make_sklearn_compat
+from lale.sklearn_compat import clone_op, make_sklearn_compat
 
 
 class TestTags(unittest.TestCase):
@@ -225,18 +225,15 @@ class TestClone(unittest.TestCase):
         lr.get_params()
         from sklearn.base import clone
 
-        lr_clone = clone(lr)
+        wrapper = make_sklearn_compat(lr)
+        lr_clone = clone(wrapper).to_lale()
         self.assertNotEqual(lr, lr_clone)
         self.assertNotEqual(lr._impl, lr_clone._impl)
         iris = load_iris()
         trained_lr = lr.fit(iris.data, iris.target)
-        predicted = trained_lr.predict(iris.data)
-        cloned_trained_lr = clone(trained_lr)
+        _ = trained_lr.predict(iris.data)
+        cloned_trained_lr = clone_op(trained_lr)
         self.assertNotEqual(trained_lr._impl, cloned_trained_lr._impl)
-        predicted_clone = cloned_trained_lr.predict(iris.data)
-        for i in range(len(iris.target)):
-            self.assertEqual(predicted[i], predicted_clone[i])
-        # Testing clone with pipelines having OperatorChoice
 
     def test_clone_operator_choice(self):
         from sklearn.base import clone
@@ -267,7 +264,7 @@ class TestClone(unittest.TestCase):
         from sklearn.model_selection import cross_val_score
 
         pca = PCA()
-        trainable = pca >> lr
+        trainable = make_sklearn_compat(pca >> lr)
         from sklearn.base import clone
 
         iris = load_iris()
@@ -284,7 +281,7 @@ class TestClone(unittest.TestCase):
         for i in range(len(result)):
             self.assertEqual(result[i], result2[i])
         # Testing clone with nested linear pipelines
-        trainable = PCA() >> trainable
+        trainable = make_sklearn_compat(PCA() >> trainable.to_lale())
         trainable2 = clone(trainable)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -305,14 +302,19 @@ class TestClone(unittest.TestCase):
         iris = load_iris()
         X, y = iris.data, iris.target
         trained = lr.fit(X, y)
-        _ = clone(trained)
+        _ = clone(make_sklearn_compat(trained))
 
     def test_with_voting_classifier1(self):
         lr = LogisticRegression()
         knn = KNeighborsClassifier()
         from sklearn.ensemble import VotingClassifier
 
-        vclf = VotingClassifier(estimators=[("lr", lr), ("knn", knn)])
+        vclf = VotingClassifier(
+            estimators=[
+                ("lr", make_sklearn_compat(lr)),
+                ("knn", make_sklearn_compat(knn)),
+            ]
+        )
 
         iris = load_iris()
         X, y = iris.data, iris.target
@@ -325,7 +327,12 @@ class TestClone(unittest.TestCase):
 
         from sklearn.ensemble import VotingClassifier
 
-        vclf = VotingClassifier(estimators=[("lr", lr), ("pipe", trainable)])
+        vclf = VotingClassifier(
+            estimators=[
+                ("lr", make_sklearn_compat(lr)),
+                ("pipe", make_sklearn_compat(trainable)),
+            ]
+        )
 
         iris = load_iris()
         X, y = iris.data, iris.target
