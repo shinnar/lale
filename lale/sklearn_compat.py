@@ -403,8 +403,8 @@ class SKlearnCompatWrapper(object):
         out["__lale_wrapper_base"] = self._base
         op = self.to_lale()
         # TODO: this check should go away -- all operators should support this
-        if hasattr(op, "get_params"):
-            out.update(op.get_params())  # type: ignore
+        if hasattr(op, "_get_params"):
+            out.update(op._get_params())  # type: ignore
 
     def set_params_internal(self, **impl_params):
         self._base = impl_params["__lale_wrapper_base"]

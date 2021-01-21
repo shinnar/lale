@@ -1685,7 +1685,7 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
         assert result.is_frozen_trainable(), str(result.free_hyperparams())
         return result
 
-    def get_params(self, deep: bool = True) -> Dict[str, Any]:
+    def _get_params(self, deep: bool = True) -> Dict[str, Any]:
         """Get parameters for this operator.
 
         This method follows scikit-learn's convention that all operators
