@@ -49,6 +49,9 @@ class BaggingClassifierImpl:
         }
         self._wrapped_model = SKLModel(**self._hyperparams)
 
+    def get_params(self, deep=True):
+        return self._wrapped_model.get_params(deep=deep)
+
     def fit(self, X, y=None):
         if y is not None:
             self._wrapped_model.fit(X, y)

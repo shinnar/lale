@@ -1703,6 +1703,12 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
         params : mapping of string to any
             Parameter names mapped to their values.
         """
+        impl = self._impl_instance()
+        if impl is not None:
+            gp = getattr(impl, "get_params", None)
+            if gp is not None:
+                return gp(deep=deep)
+
         out = dict()
         out.update(self._get_params_all())
         if deep:

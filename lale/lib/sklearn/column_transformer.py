@@ -26,20 +26,35 @@ from lale.sklearn_compat import make_sklearn_compat_opt
 
 class ColumnTransformerImpl:
     def __init__(self, **hyperparams):
-        def make_sklearn_compat_if(op: Any) -> Any:
-            if isinstance(op, lale.operators.Operator):
-                return make_sklearn_compat_opt(op)
-            else:
-                return op
 
-        t: Optional[List[Tuple[Any, Any, Any]]] = hyperparams.get("transformers", None)
-        if t is not None:
-            new_t = [(a, make_sklearn_compat_if(b), c) for a, b, c in t]
-            hyperparams["transformers"] = new_t
+        # in order for cloning to work, we need to make sure
+        # not to change the inputs if they are already correctly wrapped
+        changed = False
+
+        def compat_tuple(sa):
+            nonlocal changed
+            if isinstance(sa[1], lale.operators.Operator):
+                a2 = make_sklearn_compat_opt(sa[1])
+                if sa[1] is a2:
+                    return sa
+                else:
+                    changed = True
+                    return (sa[0], a2, sa[2])
+            else:
+                return sa
+
+        e: Optional[List[Tuple[Any, Any, Any]]] = hyperparams.get("transformers", None)
+        if e is not None:
+            new_e = list(map(compat_tuple, e))
+            if changed:
+                hyperparams["transformers"] = new_e
 
         self._hyperparams = hyperparams
 
         self._wrapped_model = sklearn.compose.ColumnTransformer(**hyperparams)
+
+    def get_params(self, deep=True):
+        return self._wrapped_model.get_params(deep=deep)
 
     def fit(self, X, y=None):
         self._wrapped_model.fit(X, y)

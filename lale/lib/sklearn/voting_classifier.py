@@ -24,14 +24,31 @@ from lale.sklearn_compat import make_sklearn_compat_opt
 
 class VotingClassifierImpl:
     def __init__(self, **hyperparams):
+        # in order for cloning to work, we need to make sure
+        # not to change the inputs if they are already correctly wrapped
+        changed = False
+
+        def compat_tuple(sa):
+            nonlocal changed
+            a2 = make_sklearn_compat_opt(sa[1])
+            if sa[1] is a2:
+                return sa
+            else:
+                changed = True
+                return (sa[0], a2)
+
         e: Optional[List[Tuple[str, Any]]] = hyperparams.get("estimators", None)
         if e is not None:
-            new_e = [(s, make_sklearn_compat_opt(a)) for s, a in e]
-            hyperparams["estimators"] = new_e
+            new_e = list(map(compat_tuple, e))
+            if changed:
+                hyperparams["estimators"] = new_e
 
         self._hyperparams = hyperparams
 
         self._wrapped_model = sklearn.ensemble.VotingClassifier(**self._hyperparams)
+
+    def get_params(self, deep=True):
+        return self._wrapped_model.get_params(deep=deep)
 
     def fit(self, X, y=None):
         if y is not None:
