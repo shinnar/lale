@@ -21,6 +21,7 @@ from sklearn.metrics import accuracy_score
 from lale.lib.lale import Batching, NoOp
 from lale.lib.sklearn import PCA, LogisticRegression, Nystroem
 from lale.search.lale_grid_search_cv import get_grid_search_parameter_grids
+from lale.sklearn_compat import make_sklearn_compat
 
 
 class TestBatching(unittest.TestCase):
@@ -238,7 +239,10 @@ class TestPipeline(unittest.TestCase):
         from sklearn.pipeline import Pipeline
 
         scikit_pipeline = Pipeline(
-            [("nystroem", Nystroem()), ("lr", LogisticRegression())]
+            [
+                ("nystroem", make_sklearn_compat(Nystroem())),
+                ("lr", make_sklearn_compat(LogisticRegression())),
+            ]
         )
         parameters = {"lr__solver": ("liblinear", "lbfgs"), "lr__penalty": ["l2"]}
         clf = GridSearchCV(
@@ -259,7 +263,10 @@ class TestPipeline(unittest.TestCase):
         from sklearn.pipeline import Pipeline
 
         scikit_pipeline = Pipeline(
-            [(Nystroem().name(), Nystroem()), (lr.name(), LogisticRegression())]
+            [
+                (Nystroem().name(), make_sklearn_compat(Nystroem())),
+                (lr.name(), make_sklearn_compat(LogisticRegression())),
+            ]
         )
         all_parameters = get_grid_search_parameter_grids(
             Nystroem() >> lr, num_samples=1

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import typing
+from typing import Any, List, Optional, Tuple
 
 import sklearn
 import sklearn.compose
@@ -20,10 +21,24 @@ import sklearn.compose
 import lale.docstrings
 import lale.operators
 from lale.schemas import Bool
+from lale.sklearn_compat import make_sklearn_compat
 
 
 class ColumnTransformerImpl:
     def __init__(self, **hyperparams):
+        def make_sklearn_compat_if(op: Any) -> Any:
+            if isinstance(op, lale.operators.Operator):
+                return make_sklearn_compat(op)
+            else:
+                return op
+
+        t: Optional[List[Tuple[Any, Any, Any]]] = hyperparams.get("transformers", None)
+        if t is not None:
+            new_t = [(a, make_sklearn_compat(b), c) for a, b, c in t]
+            hyperparams["transformers"] = new_t
+
+        self._hyperparams = hyperparams
+
         self._wrapped_model = sklearn.compose.ColumnTransformer(**hyperparams)
 
     def fit(self, X, y=None):

@@ -36,6 +36,7 @@ from lale.lib.sklearn import (
 )
 from lale.search.lale_smac import get_smac_space, lale_op_smac_tae
 from lale.search.op2hp import hyperopt_search_space
+from lale.sklearn_compat import make_sklearn_compat
 
 
 def f_min(op, X, y, num_folds=5):
@@ -852,7 +853,7 @@ class TestCrossValidation(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             cv_results = cross_val_score(
-                trainable_lr,
+                make_sklearn_compat(trainable_lr),
                 iris.data,
                 iris.target,
                 cv=KFold(2),

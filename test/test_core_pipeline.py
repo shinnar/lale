@@ -40,6 +40,7 @@ from lale.lib.sklearn import (
     StandardScaler,
 )
 from lale.lib.xgboost import XGBClassifier
+from lale.sklearn_compat import clone_op
 
 
 class TestCreation(unittest.TestCase):
@@ -89,7 +90,6 @@ class TestCreation(unittest.TestCase):
         accuracy_score(self.y_test, predictions)
 
     def test_pipeline_clone(self):
-        from sklearn.base import clone
 
         from lale.operators import Pipeline
 
@@ -98,7 +98,7 @@ class TestCreation(unittest.TestCase):
         predictions = trained.predict(self.X_test)
         orig_acc = accuracy_score(self.y_test, predictions)
 
-        cloned_pipeline = clone(pipeline)
+        cloned_pipeline = clone_op(pipeline)
         trained = cloned_pipeline.fit(self.X_train, self.y_train)
         predictions = trained.predict(self.X_test)
         cloned_acc = accuracy_score(self.y_test, predictions)

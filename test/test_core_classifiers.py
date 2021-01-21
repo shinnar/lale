@@ -526,7 +526,7 @@ class TestLogisticRegression(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             random_search = RandomizedSearchCV(
-                lr,
+                make_sklearn_compat(lr),
                 param_distributions=param_dist,
                 n_iter=n_iter_search,
                 cv=5,
