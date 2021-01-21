@@ -35,6 +35,7 @@ from lale.lib.sklearn import (
     VotingClassifier,
 )
 from lale.search.lale_grid_search_cv import get_grid_search_parameter_grids
+from lale.sklearn_compat import make_sklearn_compat
 
 
 class TestClassification(unittest.TestCase):
@@ -501,7 +502,10 @@ class TestLogisticRegression(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             clf = GridSearchCV(
-                lr, parameters, cv=5, scoring=make_scorer(accuracy_score)
+                make_sklearn_compat(lr),
+                parameters,
+                cv=5,
+                scoring=make_scorer(accuracy_score),
             )
             iris = load_iris()
             clf.fit(iris.data, iris.target)

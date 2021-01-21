@@ -12,16 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any, List, Optional, Tuple
+
 import sklearn
 import sklearn.ensemble
 
 import lale.docstrings
 import lale.operators
+from lale.sklearn_compat import make_sklearn_compat
 
 
 class VotingClassifierImpl:
     def __init__(self, **hyperparams):
+        e: Optional[List[Tuple[str, Any]]] = hyperparams.get("estimators", None)
+        if e is not None:
+            new_e = [(s, make_sklearn_compat(a)) for s, a in e]
+            hyperparams["estimators"] = new_e
+
         self._hyperparams = hyperparams
+
         self._wrapped_model = sklearn.ensemble.VotingClassifier(**self._hyperparams)
 
     def fit(self, X, y=None):
