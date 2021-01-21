@@ -21,20 +21,20 @@ import sklearn.compose
 import lale.docstrings
 import lale.operators
 from lale.schemas import Bool
-from lale.sklearn_compat import make_sklearn_compat
+from lale.sklearn_compat import make_sklearn_compat_opt
 
 
 class ColumnTransformerImpl:
     def __init__(self, **hyperparams):
         def make_sklearn_compat_if(op: Any) -> Any:
             if isinstance(op, lale.operators.Operator):
-                return make_sklearn_compat(op)
+                return make_sklearn_compat_opt(op)
             else:
                 return op
 
         t: Optional[List[Tuple[Any, Any, Any]]] = hyperparams.get("transformers", None)
         if t is not None:
-            new_t = [(a, make_sklearn_compat(b), c) for a, b, c in t]
+            new_t = [(a, make_sklearn_compat_if(b), c) for a, b, c in t]
             hyperparams["transformers"] = new_t
 
         self._hyperparams = hyperparams

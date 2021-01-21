@@ -19,14 +19,14 @@ import sklearn.ensemble
 
 import lale.docstrings
 import lale.operators
-from lale.sklearn_compat import make_sklearn_compat
+from lale.sklearn_compat import make_sklearn_compat_opt
 
 
 class VotingClassifierImpl:
     def __init__(self, **hyperparams):
         e: Optional[List[Tuple[str, Any]]] = hyperparams.get("estimators", None)
         if e is not None:
-            new_e = [(s, make_sklearn_compat(a)) for s, a in e]
+            new_e = [(s, make_sklearn_compat_opt(a)) for s, a in e]
             hyperparams["estimators"] = new_e
 
         self._hyperparams = hyperparams
