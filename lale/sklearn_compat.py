@@ -69,20 +69,23 @@ def make_sklearn_compat(
 
 def make_sklearn_compat_opt(
     op: Union[Ops.Operator, "SKlearnCompatWrapper", Any]
-) -> Optional["SKlearnCompatWrapper"]:
+) -> Any:
     """Top level function for providing compatibiltiy with sklearn operations
-       This returns a wrapper around the provided sklearn operator graph which can be passed
+       This returns a wrapper around the provided lale operator graph which can be passed
        to sklearn methods such as clone and GridSearchCV
        The wrapper may modify the wrapped lale operator/pipeline as part of providing
        compatibility with these methods.
        After the sklearn operation is complete,
        SKlearnCompatWrapper.to_lale() can be called to recover the
        wrapped lale operator for future use
+       if the input was not a lale operator, it returns it unchanged
     """
     if op is None:
         return None
-    else:
+    elif isinstance(op, Ops.Operator):
         return make_sklearn_compat(op)
+    else:
+        return op
 
 
 def sklearn_compat_clone(impl: Any) -> Any:

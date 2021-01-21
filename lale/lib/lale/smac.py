@@ -217,7 +217,7 @@ or with
         if result is None or astype == "lale":
             return result
         assert astype == "sklearn", astype
-        return lale.sklearn_compat.make_sklearn_compat(result)
+        return lale.sklearn_compat.make_sklearn_compat_opt(result)
 
 
 _hyperparams_schema = {
