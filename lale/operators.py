@@ -1166,6 +1166,16 @@ class IndividualOp(Operator):
         cp = self.__class__(self._name, impl, self._schemas)
         return cp
 
+    def _get_params_all(self) -> Dict[str, Any]:
+        output = {}
+        if self._hyperparams is not None:
+            output.update(self._hyperparams)
+        defaults = self.get_defaults()
+        for k in defaults.keys():
+            if k not in output:
+                output[k] = defaults[k]
+        return output
+
     def customize_schema(
         self,
         schemas: Optional[Schema] = None,
@@ -1732,16 +1742,6 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
             self._hyperparam_positionals = positionals
         result = {**self._hyperparam_positionals, **actuals_minus_defaults}
         return result
-
-    def _get_params_all(self) -> Dict[str, Any]:
-        output = {}
-        if self._hyperparams is not None:
-            output.update(self._hyperparams)
-        defaults = self.get_defaults()
-        for k in defaults.keys():
-            if k not in output:
-                output[k] = defaults[k]
-        return output
 
     # This should *only* ever be called by the sklearn_compat wrapper
     def set_params(self, **impl_params):
