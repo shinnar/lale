@@ -416,6 +416,100 @@ class Operator(metaclass=AbstractVisitorMeta):
         """
         return False
 
+    def _final_individual_op(self) -> Optional["IndividualOp"]:
+        return None
+
+    @property
+    def _final_estimator(self) -> Any:
+        op: Optional[IndividualOp] = self._final_individual_op()
+        model = None
+        if op is not None:
+            # if fit was called, we want to use trained result
+            # even if the code uses the original operrator
+            # since sklearn assumes that fit mutates the operator
+            if hasattr(op, "_trained"):
+                tr_op: Any = op._trained
+                assert isinstance(tr_op, TrainedIndividualOp)
+                op = tr_op
+            if hasattr(op, "_impl"):
+                impl = op._impl_instance()
+                if hasattr(impl, "_wrapped_model"):
+                    model = impl._wrapped_model
+                elif isinstance(impl, sklearn.base.BaseEstimator):
+                    model = impl
+        return "passthrough" if model is None else model
+
+    @property
+    def classes_(self):
+        return self._final_estimator.classes_
+
+    @property
+    def n_classes_(self):
+        return self._final_estimator.n_classes_
+
+    @property
+    def _estimator_type(self):
+        return self._final_estimator._estimator_type
+
+    @property
+    def _get_tags(self):
+        return self._final_estimator._get_tags
+
+    @property
+    def coef_(self):
+        return self._final_estimator.coef_
+
+    @property
+    def feature_importances_(self):
+        return self._final_estimator.feature_importances_
+
+    def get_param_ranges(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Returns two dictionaries, ranges and cat_idx, for hyperparameters.
+
+        The ranges dictionary has two kinds of entries. Entries for
+        numeric and Boolean hyperparameters are tuples of the form
+        (min, max, default). Entries for categorical hyperparameters
+        are lists of their values.
+
+        The cat_idx dictionary has (min, max, default) entries of indices
+        into the corresponding list of values.
+
+        Warning: ignores side constraints and unions."""
+        op: Optional[IndividualOp] = self._final_individual_op()
+        if op is None:
+            raise ValueError("This pipeline does not end with an individual operator")
+        else:
+            return op.get_param_ranges()
+
+    def get_param_dist(self, size=10) -> Dict[str, List[Any]]:
+        """Returns a dictionary for discretized hyperparameters.
+
+        Each entry is a list of values. For continuous hyperparameters,
+        it returns up to `size` uniformly distributed values.
+
+        Warning: ignores side constraints, unions, and distributions."""
+        op: Optional[IndividualOp] = self._final_individual_op()
+        if op is None:
+            raise ValueError("This pipeline does not end with an individual operator")
+        else:
+            return op.get_param_dist(size=size)
+
+    # should this be abstract?  what do we do for grammars?
+    def get_defaults(self) -> Dict[str, Any]:
+        return {}
+
+    # TODO!!!
+    # we need to do something to make things appear to be mutable
+    def set_params(self, **impl_params):
+        import lale.sklearn_compat
+
+        fixed_params = dict(**impl_params)
+        new_s = lale.sklearn_compat.set_operator_params(self, **fixed_params)
+        #            if not isinstance(new_s, Ops.TrainableOperator):
+        #                assert False
+        # FIXME This is a problem
+        return new_s
+
 
 Operator.__doc__ = cast(str, Operator.__doc__) + "\n" + _combinators_docstrings
 
@@ -828,10 +922,14 @@ class IndividualOp(Operator):
         params : mapping of string to any
             Parameter names mapped to their values.
         """
+
         out = dict()
         out["_lale_name"] = self._name
         out["_lale_schemas"] = self._schemas
         out["_lale_impl"] = self._impl_class()
+        # we need to stringify the class object, since the class object
+        # has a get_params method (the instance method), which causes problems for
+        # sklearn clone
 
         frozen_keys = self._hyperparams.keys() if self._hyperparams is not None else []
         cached_frozen_keys = getattr(self, "_cached_frozen_hyperparameters", None)
@@ -902,15 +1000,16 @@ class IndividualOp(Operator):
                     f"Calling {name} on a TrainableOperator is deprecated.  Perhaps you meant to train this operator first?  Note that in lale, the result of fit is a new TrainedOperator that should be used with {name}."
                 )
 
-        if name == "_estimator_type":
-            if self.is_classifier():
-                return "classifier"  # satisfy sklearn.base.is_classifier(op)
-
         ea = self.enum
         if name in ea:
             return ea[name]
         else:
             raise AttributeError
+
+    @property
+    def _estimator_type(self):
+        if self.is_classifier():
+            return "classifier"  # satisfy sklearn.base.is_classifier(op)
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -1421,6 +1520,9 @@ class IndividualOp(Operator):
         """
         return self.has_method("transform")
 
+    def _final_individual_op(self) -> Optional["IndividualOp"]:
+        return self
+
 
 _is_supervised_schema = {"type": "object", "required": ["y"]}
 
@@ -1440,6 +1542,7 @@ class PlannedIndividualOp(IndividualOp, PlannedOperator):
         _lale_impl,
         _lale_schemas,
         _lale_frozen_hyperparameters,
+        _lale_trained=False,
         **hp,
     ) -> None:
         super(PlannedIndividualOp, self).__init__(
@@ -1503,6 +1606,7 @@ class PlannedIndividualOp(IndividualOp, PlannedOperator):
                 _lale_impl=impl,
                 _lale_schemas=self._schemas,
                 _lale_frozen_hyperparameters=None,
+                _lale_trained=True,
             )
         else:
             result = TrainableIndividualOp(
@@ -1659,7 +1763,9 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
         # the trainableshould be used as the trained impl as well
         if trained_impl is None:
             trained_impl = trainable_impl
-        result = TrainedIndividualOp(self.name(), trained_impl, self._schemas, None)
+        result = TrainedIndividualOp(
+            self.name(), trained_impl, self._schemas, None, _lale_trained=True
+        )
         result._hyperparams = self._trained_hyperparams(trained_impl)
         self._trained = result
         # logger.info("%s exit  fit %s", time.asctime(), self.name())
@@ -1679,7 +1785,9 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
             trained_impl = trainable_impl.partial_fit(X, y, **filtered_fit_params)
         if trained_impl is None:
             trained_impl = trainable_impl
-        result = TrainedIndividualOp(self.name(), trained_impl, self._schemas, None)
+        result = TrainedIndividualOp(
+            self.name(), trained_impl, self._schemas, None, _lale_trained=True
+        )
         result._hyperparams = self._hyperparams
         self._trained = result
         return result
@@ -1898,8 +2006,23 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
 class TrainedIndividualOp(TrainableIndividualOp, TrainedOperator):
     _frozen_trained: bool
 
+    def __new__(cls, *args, _lale_trained=False, **kwargs):
+        c = cls
+        if not _lale_trained:
+            # unless _lale_trained=True, we actually want to return a Trainable
+            c = TrainableIndividualOp
+        obj = super(TrainedIndividualOp, cls).__new__(c)
+        obj.__init__(*args, **kwargs)
+        return obj
+
     def __init__(
-        self, _lale_name, _lale_impl, _lale_schemas, _lale_frozen_hyperparameters, **hp
+        self,
+        _lale_name,
+        _lale_impl,
+        _lale_schemas,
+        _lale_frozen_hyperparameters,
+        _lale_trained=False,
+        **hp,
     ):
         super(TrainedIndividualOp, self).__init__(
             _lale_name, _lale_impl, _lale_schemas, _lale_frozen_hyperparameters, **hp
@@ -1911,7 +2034,11 @@ class TrainedIndividualOp(TrainableIndividualOp, TrainedOperator):
 
         trainable = self._configure(*args, **filtered_kwargs_params)
         instance = TrainedIndividualOp(
-            trainable._name, trainable._impl, trainable._schemas, None
+            trainable._name,
+            trainable._impl,
+            trainable._schemas,
+            None,
+            _lale_trained=True,
         )
         instance._hyperparams = trainable._hyperparams
         return instance
@@ -2145,12 +2272,16 @@ def make_operator(
         if hasattr(impl, "fit"):
             operatorObj = PlannedIndividualOp(name, impl, schemas, None)
         else:
-            operatorObj = TrainedIndividualOp(name, impl, schemas, None)
+            operatorObj = TrainedIndividualOp(
+                name, impl, schemas, None, _lale_trained=True
+            )
     else:
         if hasattr(impl, "fit"):
             operatorObj = TrainableIndividualOp(name, impl, schemas, None)
         else:
-            operatorObj = TrainedIndividualOp(name, impl, schemas, None)
+            operatorObj = TrainedIndividualOp(
+                name, impl, schemas, None, _lale_trained=True
+            )
         if hasattr(impl, "get_params"):
             operatorObj._hyperparams = {**impl.get_params(deep=False)}
 
@@ -2195,7 +2326,6 @@ class BasePipeline(Operator, Generic[OpType]):
     _preds: Dict[OpType, List[OpType]]
     _cached_preds: Optional[Dict[int, List[int]]]
     _name: str
-    _estimator_type: Optional[str]
 
     def _steps_to_indices(self) -> Dict[OpType, int]:
         return dict([(op, i) for (i, op) in enumerate(self._steps)])
@@ -2252,11 +2382,6 @@ class BasePipeline(Operator, Generic[OpType]):
             self._steps = steps
             self._cached_preds = preds
             self._preds = self._indices_to_preds(steps, preds)
-
-            if self.is_classifier():
-                self._estimator_type = (
-                    "classifier"  # satisfy sklearn.base.is_classifier(op)
-                )
 
             return
         self._cached_preds = None
@@ -2327,10 +2452,6 @@ class BasePipeline(Operator, Generic[OpType]):
             if not ordered:
                 self.__sort_topologically()
             assert self.__is_in_topological_order()
-        if self.is_classifier():
-            self._estimator_type = (
-                "classifier"  # satisfy sklearn.base.is_classifier(op)
-            )
 
     def __constructor_for_cloning(self, steps: List[OpType]):
         edges: List[Tuple[OpType, OpType]] = []
@@ -2653,6 +2774,28 @@ class BasePipeline(Operator, Generic[OpType]):
                 return False
         return True
 
+    def get_defaults(self) -> Dict[str, Any]:
+        import lale.sklearn_compat
+
+        defaults_list: Iterable[Dict[str, Any]] = (
+            lale.sklearn_compat.nest_HPparams(s.name(), s.get_defaults())
+            for s in self.steps()
+        )
+
+        # TODO: could this just be dict(defaults_list)
+        defaults: Dict[str, Any] = {}
+        for d in defaults_list:
+            defaults.update(d)
+
+        return defaults
+
+    def _final_individual_op(self) -> Optional["IndividualOp"]:
+        op = self.get_last()
+        if op is None:
+            return None
+        else:
+            return op._final_individual_op()
+
 
 PlannedOpType = TypeVar("PlannedOpType", bound=PlannedOperator, covariant=True)
 
@@ -2703,6 +2846,7 @@ class TrainablePipeline(PlannedPipeline[TrainableOpType], TrainableOperator):
         edges: Optional[Iterable[Tuple[TrainableOpType, TrainableOpType]]] = None,
         preds: Optional[Dict[int, List[int]]] = None,
         ordered: bool = False,
+        _lale_trained=False,
     ) -> None:
         super(TrainablePipeline, self).__init__(
             steps, edges=edges, preds=preds, ordered=ordered
@@ -2716,6 +2860,7 @@ class TrainablePipeline(PlannedPipeline[TrainableOpType], TrainableOperator):
         return pipe
 
     def fit(self, X, y=None, **fit_params) -> "TrainedPipeline[TrainedIndividualOp]":
+        # filtered_fit_params = _fixup_hyperparams_dict(fit_params)
         X = lale.datasets.data_schemas.add_schema(X)
         y = lale.datasets.data_schemas.add_schema(y)
         self.validate_schema(X, y)
@@ -2799,7 +2944,7 @@ class TrainablePipeline(PlannedPipeline[TrainableOpType], TrainableOperator):
         trained_edges = [(trained_map[x], trained_map[y]) for (x, y) in edges]
 
         result: TrainedPipeline[TrainedIndividualOp] = TrainedPipeline(
-            trained_steps, trained_edges, ordered=True
+            trained_steps, trained_edges, ordered=True, _lale_trained=True
         )
         self._trained = result
         return result
@@ -2963,7 +3108,11 @@ class TrainablePipeline(PlannedPipeline[TrainableOpType], TrainableOperator):
                         trained = trainable.partial_fit(batch_X)
             assert trained is not None
             trained = TrainedIndividualOp(
-                trained.name(), trained._impl, trained._schemas, None
+                trained.name(),
+                trained._impl,
+                trained._schemas,
+                None,
+                _lale_trained=True,
             )
             trained_map[operator] = trained
             trained_steps.append(trained)
@@ -3052,7 +3201,7 @@ class TrainablePipeline(PlannedPipeline[TrainableOpType], TrainableOperator):
 
         trained_steps2: Any = trained_steps
         result: TrainedPipeline[TrainedIndividualOp] = TrainedPipeline(
-            trained_steps2, trained_edges, ordered=True
+            trained_steps2, trained_edges, ordered=True, _lale_trained=True
         )
         self._trained = result
         return result
@@ -3072,12 +3221,22 @@ TrainedOpType = TypeVar("TrainedOpType", bound=TrainedIndividualOp, covariant=Tr
 
 
 class TrainedPipeline(TrainablePipeline[TrainedOpType], TrainedOperator):
+    def __new__(cls, *args, _lale_trained=False, **kwargs):
+        c = cls
+        if not _lale_trained:
+            # unless _lale_trained=True, we actually want to return a Trainable
+            c = TrainablePipeline
+        obj = super(TrainedPipeline, cls).__new__(c)
+        obj.__init__(*args, **kwargs)
+        return obj
+
     def __init__(
         self,
         steps: List[TrainedOpType],
         edges: Optional[List[Tuple[TrainedOpType, TrainedOpType]]] = None,
         preds: Optional[Dict[int, List[int]]] = None,
         ordered: bool = False,
+        _lale_trained=False,
     ) -> None:
         super(TrainedPipeline, self).__init__(
             steps, edges=edges, preds=preds, ordered=ordered
@@ -3337,7 +3496,9 @@ class TrainedPipeline(TrainablePipeline[TrainedOpType], TrainedOperator):
             frozen_map[liquid] = frozen
             frozen_steps.append(frozen)
         frozen_edges = [(frozen_map[x], frozen_map[y]) for x, y in self.edges()]
-        result = TrainedPipeline(frozen_steps, frozen_edges, ordered=True)
+        result = TrainedPipeline(
+            frozen_steps, frozen_edges, ordered=True, _lale_trained=True
+        )
         assert result.is_frozen_trained()
         return result
 
@@ -3367,10 +3528,6 @@ class OperatorChoice(PlannedOperator, Generic[OperatorChoiceType]):
 
         self._name = name
         self._steps = steps
-        if self.is_classifier():
-            self._estimator_type = (
-                "classifier"  # satisfy sklearn.base.is_classifier(op)
-            )
 
     def steps(self) -> List[OperatorChoiceType]:
         return self._steps
@@ -3423,6 +3580,17 @@ class OperatorChoice(PlannedOperator, Generic[OperatorChoiceType]):
             if not op.is_classifier():
                 return False
         return True
+
+    def get_defaults(self) -> Dict[str, Any]:
+        defaults_list: Iterable[Dict[str, Any]] = (
+            s.get_defaults() for s in self.steps()
+        )
+
+        defaults: Dict[str, Any] = {}
+        for d in defaults_list:
+            defaults.update(d)
+
+        return defaults
 
 
 class _PipelineFactory:
@@ -3493,7 +3661,7 @@ def make_pipeline_graph(steps, edges, ordered=False) -> PlannedPipeline:
         ):
             isTrainable = False
     if isTrained:
-        return TrainedPipeline(steps, edges, ordered=ordered)
+        return TrainedPipeline(steps, edges, ordered=ordered, _lale_trained=True)
     elif isTrainable:
         return TrainablePipeline(steps, edges, ordered=ordered)
     else:
