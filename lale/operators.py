@@ -449,7 +449,11 @@ class Operator(metaclass=AbstractVisitorMeta):
 
     @property
     def _estimator_type(self):
-        return self._final_estimator._estimator_type
+        estimator = self._final_estimator
+        if isinstance(estimator, IndividualOp):
+            return estimator._op_estimator_type
+        else:
+            return estimator._final_estimator
 
     @property
     def _get_tags(self):
@@ -509,6 +513,11 @@ class Operator(metaclass=AbstractVisitorMeta):
         #                assert False
         # FIXME This is a problem
         return new_s
+
+    # FIXME: this is a temporary backwards compatibility hack
+    def to_lale(self):
+        warnings.warn(_mutation_warning("Operator.to_lale"), DeprecationWarning)
+        return self
 
 
 Operator.__doc__ = cast(str, Operator.__doc__) + "\n" + _combinators_docstrings
@@ -795,6 +804,26 @@ class _DictionaryObjectForEnum:
             raise KeyError("No enumeration found for hyper-parameter: " + key)
 
 
+class WGP(object):
+    @classmethod
+    def unwrap(cls, obj):
+        while isinstance(obj, WGP):
+            obj = obj.klass
+        return obj
+
+    @classmethod
+    def wrap(cls, obj):
+        if isinstance(obj, WGP):
+            return obj
+        else:
+            return WGP(obj)
+
+    klass: type
+
+    def __init__(self, klass: type):
+        self.klass = klass
+
+
 class IndividualOp(Operator):
     """
     This is a concrete class that can instantiate a new individual
@@ -844,11 +873,11 @@ class IndividualOp(Operator):
         # if we are given a class instance, we need to preserve it
         # so that get_params can return the same exact one that we got
         # this is important for scikit-learn's clone to work correctly
-        self._impl = _lale_impl
-        if inspect.isclass(_lale_impl):
+        self._impl = WGP.unwrap(_lale_impl)
+        if inspect.isclass(WGP.unwrap(_lale_impl)):
             self._impl_class_ = _lale_impl
         else:
-            self._impl_class_ = _lale_impl.__class__
+            self._impl_class_ = WGP.unwrap(_lale_impl).__class__
 
         self._cached_frozen_hyperparameters = _lale_frozen_hyperparameters
 
@@ -860,10 +889,10 @@ class IndividualOp(Operator):
                 }
             else:
                 self._hyperparams = hp
-            assert (
-                self._impl is self._impl_class_
+            assert self._impl is WGP.unwrap(
+                self._impl_class_
             )  # this is only intended to be used with a class argument
-            self._impl = self._impl_class_(**hp)
+            self._impl = WGP.unwrap(self._impl_class_)(**hp)
         else:
             self._hyperparams = None
 
@@ -926,7 +955,7 @@ class IndividualOp(Operator):
         out = dict()
         out["_lale_name"] = self._name
         out["_lale_schemas"] = self._schemas
-        out["_lale_impl"] = self._impl_class()
+        out["_lale_impl"] = WGP.wrap(self._wrapped_impl_class())
         # we need to stringify the class object, since the class object
         # has a get_params method (the instance method), which causes problems for
         # sklearn clone
@@ -943,7 +972,7 @@ class IndividualOp(Operator):
 
         out["_lale_frozen_hyperparameters"] = cached_frozen_keys
 
-        if self._impl is self._impl_class():
+        if self._impl is WGP.unwrap(self._impl_class()):
             return out
         else:
             impl = self._impl_instance()
@@ -1000,16 +1029,15 @@ class IndividualOp(Operator):
                     f"Calling {name} on a TrainableOperator is deprecated.  Perhaps you meant to train this operator first?  Note that in lale, the result of fit is a new TrainedOperator that should be used with {name}."
                 )
 
+        if name == "_op_estimator_type":
+            if self.is_classifier():
+                return "classifier"  # satisfy sklearn.base.is_classifier(op)
+
         ea = self.enum
         if name in ea:
             return ea[name]
         else:
             raise AttributeError
-
-    @property
-    def _estimator_type(self):
-        if self.is_classifier():
-            return "classifier"  # satisfy sklearn.base.is_classifier(op)
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -1317,13 +1345,16 @@ class IndividualOp(Operator):
             raise ValueError("Missing keyword on argument {}.".format(arg))
         return arg.__class__.__name__, arg.value
 
-    def _impl_class(self):
+    def _wrapped_impl_class(self):
         if not hasattr(self, "_impl_class_"):
             if inspect.isclass(self._impl):
                 self._impl_class_ = self._impl
             else:
                 self._impl_class_ = self._impl.__class__
         return self._impl_class_
+
+    def _impl_class(self):
+        return WGP.unwrap(self._wrapped_impl_class())
 
     def _impl_instance(self):
         if self._impl is self._impl_class():
@@ -2007,13 +2038,16 @@ class TrainedIndividualOp(TrainableIndividualOp, TrainedOperator):
     _frozen_trained: bool
 
     def __new__(cls, *args, _lale_trained=False, **kwargs):
-        c = cls
-        if not _lale_trained:
+        if "_lale_name" not in kwargs or _lale_trained:
+            obj = super(TrainedIndividualOp, cls).__new__(TrainedIndividualOp)
+            return obj
+        else:
             # unless _lale_trained=True, we actually want to return a Trainable
-            c = TrainableIndividualOp
-        obj = super(TrainedIndividualOp, cls).__new__(c)
-        obj.__init__(*args, **kwargs)
-        return obj
+            obj = super(TrainedIndividualOp, cls).__new__(TrainableIndividualOp)
+            # apparently python does not call __ini__ if the type returned is not the
+            # expected type
+            obj.__init__(*args, **kwargs)
+            return obj
 
     def __init__(
         self,
@@ -3222,13 +3256,17 @@ TrainedOpType = TypeVar("TrainedOpType", bound=TrainedIndividualOp, covariant=Tr
 
 class TrainedPipeline(TrainablePipeline[TrainedOpType], TrainedOperator):
     def __new__(cls, *args, _lale_trained=False, **kwargs):
-        c = cls
-        if not _lale_trained:
+        if _lale_trained:
+            obj = super(TrainedPipeline, cls).__new__(TrainedPipeline)
+            obj.__init__(*args, **kwargs)
+            return obj
+        else:
             # unless _lale_trained=True, we actually want to return a Trainable
-            c = TrainablePipeline
-        obj = super(TrainedPipeline, cls).__new__(c)
-        obj.__init__(*args, **kwargs)
-        return obj
+            obj = super(TrainedPipeline, cls).__new__(TrainablePipeline)
+            # apparently python does not call __ini__ if the type returned is not the
+            # expected type
+            obj.__init__(*args, **kwargs)
+            return obj
 
     def __init__(
         self,
