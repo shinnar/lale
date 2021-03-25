@@ -17,55 +17,6 @@ from sklearn.ensemble import AdaBoostClassifier as SKLModel
 import lale.docstrings
 import lale.operators
 
-
-class _AdaBoostClassifierImpl:
-    def __init__(
-        self,
-        base_estimator=None,
-        n_estimators=50,
-        learning_rate=1.0,
-        algorithm="SAMME.R",
-        random_state=None,
-    ):
-        if isinstance(base_estimator, lale.operators.Operator):
-            if isinstance(base_estimator, lale.operators.IndividualOp):
-                base_estimator = base_estimator._impl_instance()
-                wrapped_model = getattr(base_estimator, "_wrapped_model", None)
-                if wrapped_model is not None:
-                    base_estimator = wrapped_model
-            else:
-                raise ValueError(
-                    "If base_estimator is a Lale operator, it needs to be an individual operator. "
-                )
-        self._hyperparams = {
-            "base_estimator": base_estimator,
-            "n_estimators": n_estimators,
-            "learning_rate": learning_rate,
-            "algorithm": algorithm,
-            "random_state": random_state,
-        }
-        self._wrapped_model = SKLModel(**self._hyperparams)
-
-    def fit(self, X, y=None):
-        if y is not None:
-            self._wrapped_model.fit(X, y)
-        else:
-            self._wrapped_model.fit(X)
-        return self
-
-    def predict(self, X):
-        return self._wrapped_model.predict(X)
-
-    def predict_proba(self, X):
-        return self._wrapped_model.predict_proba(X)
-
-    def decision_function(self, X):
-        return self._wrapped_model.decision_function(X)
-
-    def score(self, X, y, sample_weight=None):
-        return self._wrapped_model.score(X, y, sample_weight)
-
-
 _hyperparams_schema = {
     "description": "Hyperparameter schema.",
     "allOf": [
@@ -251,8 +202,6 @@ _combined_schemas = {
     },
 }
 
-AdaBoostClassifier = lale.operators.make_operator(
-    _AdaBoostClassifierImpl, _combined_schemas
-)
+AdaBoostClassifier = lale.operators.make_operator(SKLModel, _combined_schemas)
 
 lale.docstrings.set_docstrings(AdaBoostClassifier)
