@@ -30,11 +30,11 @@ def _wrap_operators_in_symtab(symtab):
             operator = get_op_from_lale_lib(impl)
             if operator is None:
                 symtab[name] = make_operator(impl=impl, name=name)
-                logger.info(f"Lale:Wrapped unkwnown operator:{name}")
+                logger.info(f"Lale:Wrapped unknown operator:{name}")
             else:
                 symtab[name] = clone_op(operator, name)
-                if operator.class_name().startswith("lale.lib.autogen"):
-                    logger.info(f"Lale:Wrapped autogen operator:{name}")
+                if operator.class_name().startswith("lale.lib.sklearn._autogen"):
+                    logger.info(f"Lale:Wrapped autogen sklearn operator:{name}")
                 else:
                     logger.info(f"Lale:Wrapped known operator:{name}")
 

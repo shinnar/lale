@@ -334,9 +334,9 @@ class TestCustomSchema(unittest.TestCase):
     def test_wrap_imported_operators(self):
         old_globals = {**globals()}
         try:
-            from lale.lib.autogen import Lars
             from lale.lib.lightgbm import LGBMClassifier
             from lale.lib.sklearn import PCA
+            from lale.lib.sklearn._autogen import Lars
             from lale.lib.xgboost import XGBClassifier
 
             lale.wrap_imported_operators()

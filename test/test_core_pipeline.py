@@ -25,7 +25,6 @@ import lale.datasets.openml
 import lale.helpers
 import lale.operators
 from lale.helpers import import_from_sklearn_pipeline
-from lale.lib.autogen import SGDClassifier
 from lale.lib.lale import ConcatFeatures, NoOp
 from lale.lib.sklearn import (
     PCA,
@@ -37,6 +36,7 @@ from lale.lib.sklearn import (
     Nystroem,
     OneHotEncoder,
     PassiveAggressiveClassifier,
+    SGDClassifier,
     StandardScaler,
 )
 from lale.lib.xgboost import XGBClassifier

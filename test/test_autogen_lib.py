@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from sklearn import datasets
 
-import lale.lib.autogen as autogen
+import lale.lib.sklearn._autogen as autogen
 from lale.lib.lale import Hyperopt
 from lale.lib.lale.hyperopt import logger
 from lale.lib.sklearn import LogisticRegression
@@ -223,7 +223,7 @@ def test_transformer(name, Op):
 
 
 def test_ordinal_encoder():
-    from lale.lib.autogen import OrdinalEncoder as Op
+    from lale.lib.sklearn._autogen import OrdinalEncoder as Op
 
     def data_loader():
         X = np.array([[choice([0, 2]), choice([1, 2, 3])] for _ in range(100)])
@@ -235,7 +235,7 @@ def test_ordinal_encoder():
 
 @pytest.mark.xfail(reason="Output boolean array (pipeline?)")
 def test_missing_indicator():
-    from lale.lib.autogen import MissingIndicator as Op
+    from lale.lib.sklearn._autogen import MissingIndicator as Op
 
     def data_loader():
         X = np.array(

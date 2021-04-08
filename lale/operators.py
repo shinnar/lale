@@ -2580,7 +2580,7 @@ def get_op_from_lale_lib(impl_class) -> Optional[IndividualOp]:
             result = getattr(module, impl_class.__name__)
         except (ModuleNotFoundError, AttributeError):
             try:
-                module = importlib.import_module("lale.lib.autogen")
+                module = importlib.import_module("lale.lib.sklearn._autogen")
                 result = getattr(module, impl_class.__name__)
             except (ModuleNotFoundError, AttributeError):
                 result = None
