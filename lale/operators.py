@@ -2046,19 +2046,6 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
 
         return self
 
-    def _clone_impl(self):
-        impl_instance = self._impl_instance()
-        if hasattr(impl_instance, "get_params"):
-            result = sklearn.base.clone(impl_instance)
-        else:
-            try:
-                result = copy.deepcopy(impl_instance)
-            except Exception:
-                impl_class = self._impl_class()
-                params_all = self._get_params_all()
-                result = impl_class(**params_all)
-        return result
-
     def _trained_hyperparams(self, trained_impl) -> Optional[Dict[str, Any]]:
         hp = self.hyperparams()
         if hp is None:
@@ -2096,11 +2083,21 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
         y = self._validate_input_schema("y", y, "fit")
         self._validate_hyperparam_data_constraints(X, y)
         filtered_fit_params = _fixup_hyperparams_dict(fit_params)
-        trainable_impl = self._clone_impl()
+
+        trainable_op: TrainableIndividualOp
+        if isinstance(self, TrainedIndividualOp):
+            trainable_op = self
+        else:
+            trainable_op = getattr(self, "_trained", None)
+            if trainable_op is None:
+                trainable_op = clone_op(self)
+        trainable_impl = trainable_op.impl
+
         if filtered_fit_params is None:
             trained_impl = trainable_impl.fit(X, y)
         else:
             trained_impl = trainable_impl.fit(X, y, **filtered_fit_params)
+
         # if the trainable fit method returns None, assume that
         # the trainableshould be used as the trained impl as well
         if trained_impl is None:
@@ -2117,7 +2114,8 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
             _lale_frozen_hyperparameters=frozen,
             **hps,
         )
-        self._trained = result
+        if not isinstance(self, TrainedIndividualOp):
+            self._trained = result
         # logger.info("%s exit  fit %s", time.asctime(), self.name())
         return result
 
@@ -2128,7 +2126,16 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
         y = self._validate_input_schema("y", y, "partial_fit")
         self._validate_hyperparam_data_constraints(X, y)
         filtered_fit_params = _fixup_hyperparams_dict(fit_params)
-        trainable_impl = self._clone_impl()
+
+        trainable_op: TrainableIndividualOp
+        if isinstance(self, TrainedIndividualOp):
+            trainable_op = self
+        else:
+            trainable_op = getattr(self, "_trained", None)
+            if trainable_op is None:
+                trainable_op = clone_op(self)
+        trainable_impl = trainable_op.impl
+
         if filtered_fit_params is None:
             trained_impl = trainable_impl.partial_fit(X, y)
         else:
@@ -2146,7 +2153,8 @@ class TrainableIndividualOp(PlannedIndividualOp, TrainableOperator):
             _lale_frozen_hyperparameters=self.frozen_hyperparams(),
             **hps,
         )
-        self._trained = result
+        if not isinstance(self, TrainedIndividualOp):
+            self._trained = result
         return result
 
     def freeze_trained(self) -> "TrainedIndividualOp":
