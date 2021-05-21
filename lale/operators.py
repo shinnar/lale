@@ -1344,6 +1344,18 @@ class IndividualOp(Operator):
             state.pop(k, None)
         return state
 
+    def __deepcopy__(self, memo):
+        deepcopy_method = self.__deepcopy__
+        self.__deepcopy__ = None  # type: ignore
+        cp = copy.deepcopy(self, memo)
+        self.__deepcopy__ = deepcopy_method  # type: ignore
+        cp.__deepcopy__ = deepcopy_method
+
+        # custom treatments
+        # for instance: cp.id = None
+
+        return cp
+
     def get_schema(self, schema_kind: str) -> Dict[str, Any]:
         """Return a schema of the operator.
 
