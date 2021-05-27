@@ -32,6 +32,23 @@ except ImportError:
     pass
 
 
+def num_grid_variants(grid) -> int:
+    from functools import reduce
+
+    if not grid:
+        return 0
+
+    def get_row_variants(row) -> int:
+        return reduce((lambda x, y: x * y), (len(ch) for ch in row.values()), 1)
+
+    if isinstance(grid, list):
+        return sum((get_row_variants(r) for r in grid))
+    elif isinstance(grid, dict):
+        return get_row_variants(grid)
+    else:
+        return 0  # This should never happen
+
+
 class _GridSearchCVImpl:
     _best_estimator: Optional[lale.operators.TrainedOperator] = None
 
@@ -128,6 +145,10 @@ class _GridSearchCVImpl:
                     pgo=self._hyperparams["pgo"],
                 )
             try:
+                num_tries_expected = num_grid_variants(hp_grid)
+                print(
+                    f"[#GRIDS={num_tries_expected}]: Number of variants that gridsearch is expected to try."
+                )
                 self.grid = lale.search.lale_grid_search_cv.get_lale_gridsearchcv_op(
                     observed_op,
                     hp_grid,
