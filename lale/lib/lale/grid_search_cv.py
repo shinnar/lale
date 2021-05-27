@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import random
+from copy import deepcopy
+from functools import reduce
+from math import ceil
 from typing import Any, Dict, Optional
 
 import lale.docstrings
@@ -32,14 +36,13 @@ except ImportError:
     pass
 
 
-def num_grid_variants(grid) -> int:
-    from functools import reduce
+def get_row_variants(row) -> int:
+    return reduce((lambda x, y: x * y), (len(ch) for ch in row.values()), 1)
 
+
+def num_grid_variants(grid) -> int:
     if not grid:
         return 0
-
-    def get_row_variants(row) -> int:
-        return reduce((lambda x, y: x * y), (len(ch) for ch in row.values()), 1)
 
     if isinstance(grid, list):
         return sum((get_row_variants(r) for r in grid))
@@ -47,6 +50,27 @@ def num_grid_variants(grid) -> int:
         return get_row_variants(grid)
     else:
         return 0  # This should never happen
+
+
+def trim_row(row, row_size, goal):
+    while row_size > goal:
+        k = random.choice(list(row))
+        v = row[k]
+        old_len_v = len(v)
+        if old_len_v > 1:
+            v.pop(random.randint(0, len(v) - 1))
+            row_size = (row_size / old_len_v) * (old_len_v - 1)
+    return row
+
+
+def trim_grid(grid, goal):
+    row_sizes = [get_row_variants(r) for r in grid]
+    total_size = sum(row_sizes)
+    grid = deepcopy(grid)
+    return [
+        trim_row(grid[i], row_sizes[i], ceil(goal * row_sizes[i] / total_size))
+        for i in range(len(grid))
+    ]
 
 
 class _GridSearchCVImpl:
@@ -61,6 +85,7 @@ class _GridSearchCVImpl:
         n_jobs=None,
         lale_num_samples=None,
         lale_num_grids=None,
+        lale_target_points=None,
         param_grid=None,
         pgo=None,
         observer=None,
@@ -84,6 +109,7 @@ class _GridSearchCVImpl:
             "n_jobs": n_jobs,
             "lale_num_samples": lale_num_samples,
             "lale_num_grids": lale_num_grids,
+            "lale_target_points": lale_target_points,
             "pgo": pgo,
             "hp_grid": param_grid,
             "observer": observer,
@@ -119,6 +145,9 @@ class _GridSearchCVImpl:
                 pgo=self._hyperparams["pgo"],
                 data_schema=data_schema,
             )
+            target_points = self._hyperparams["lale_num_grids"]
+            if target_points:
+                hp_grid = trim_grid(hp_grid, target_points)
         else:
             # if hp_grid is specified manually, we need to add a level of nesting
             # since we are wrapping it in an observer
@@ -333,6 +362,17 @@ Default of None translates to `accuracy` for classification and `r2` for regress
                             "description": "Number of grids to keep.",
                             "type": "integer",
                             "minimum": 1,
+                        },
+                    ],
+                    "default": None,
+                },
+                "lale_target_points": {
+                    "description": "Approximately how many points should be in the generated grid.",
+                    "anyOf": [
+                        {"type": "integer", "minimum": 1},
+                        {
+                            "description": "Generate everything as per the other parameters",
+                            "enum": [None],
                         },
                     ],
                     "default": None,

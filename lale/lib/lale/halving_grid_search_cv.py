@@ -21,7 +21,7 @@ import lale.helpers
 import lale.lib.sklearn
 import lale.operators
 import lale.search.lale_grid_search_cv
-from lale.lib.lale.grid_search_cv import num_grid_variants
+from lale.lib.lale.grid_search_cv import num_grid_variants, trim_grid
 
 from .observing import Observing
 
@@ -56,6 +56,7 @@ class _HalvingGridSearchCVImpl:
         cv=5,
         lale_num_samples=None,
         lale_num_grids=None,
+        lale_target_points=None,
         pgo=None,
         observer=None,
         max_opt_time=None,
@@ -87,6 +88,7 @@ class _HalvingGridSearchCVImpl:
             "verbose": verbose,
             "lale_num_samples": lale_num_samples,
             "lale_num_grids": lale_num_grids,
+            "lale_target_points": lale_target_points,
             "pgo": pgo,
             "hp_grid": param_grid,
             "observer": observer,
@@ -122,6 +124,10 @@ class _HalvingGridSearchCVImpl:
                 pgo=self._hyperparams["pgo"],
                 data_schema=data_schema,
             )
+            target_points = self._hyperparams["lale_target_points"]
+            if target_points:
+                hp_grid = trim_grid(hp_grid, target_points)
+
         else:
             # if hp_grid is specified manually, we need to add a level of nesting
             # since we are wrapping it in an observer
@@ -427,6 +433,17 @@ Default of None translates to `accuracy` for classification and `r2` for regress
                             "description": "Number of grids to keep.",
                             "type": "integer",
                             "minimum": 1,
+                        },
+                    ],
+                    "default": None,
+                },
+                "lale_target_points": {
+                    "description": "Approximately how many points should be in the generated grid.",
+                    "anyOf": [
+                        {"type": "integer", "minimum": 1},
+                        {
+                            "description": "Generate everything as per the other parameters",
+                            "enum": [None],
                         },
                     ],
                     "default": None,
