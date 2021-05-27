@@ -21,6 +21,7 @@ import lale.helpers
 import lale.lib.sklearn
 import lale.operators
 import lale.search.lale_grid_search_cv
+from lale.lib.lale.grid_search_cv import num_grid_variants
 
 from .observing import Observing
 
@@ -147,6 +148,11 @@ class _HalvingGridSearchCVImpl:
                     pgo=self._hyperparams["pgo"],
                 )
             try:
+                num_tries_expected = num_grid_variants(hp_grid)
+                print(
+                    f"[#GRIDS={num_tries_expected}]: Number of variants that gridsearch is expected to try."
+                )
+
                 # explicitly require this experimental feature
                 from sklearn.experimental import enable_halving_search_cv  # noqa
 
