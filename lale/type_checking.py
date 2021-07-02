@@ -221,7 +221,47 @@ def is_subschema(sub_schema, super_schema) -> bool:
     """
     new_sub = _json_replace(sub_schema, {"laleType": "Any"}, {"not": {}})
     try:
-        return jsonsubschema.isSubschema(new_sub, super_schema)
+        issub_lale = jsonsubschema.isSubschema(new_sub, super_schema)
+
+        import json
+
+        import requests
+
+        service_endpoint = "https://yetanotherwitness.ey.r.appspot.com/compareSchemas"
+        body = {
+            "leftSchema": json.dumps(new_sub),
+            "rightSchema": json.dumps(super_schema),
+        }
+        response = requests.post(
+            service_endpoint,
+            json=body,
+            headers={"Content-type": "application/json", "Accept": "application/json"},
+        )
+
+        if response:
+            answer = response.json()
+            # print(answer)
+            d = answer.get("data", None)
+            relation = None
+            if d is not None:
+                relation = d.get("relationship", None)
+            if relation is not None:
+                lale_str = "<" if issub_lale else "?"
+                if relation == "RIGHT_IS_GENERALIZATION":
+                    their_str = "<"
+                elif relation == "EQUIVALENT":
+                    their_str = "="
+                elif relation == "LEFT_IS_GENERALIZATION":
+                    their_str = ">"
+                else:
+                    their_str = "?"
+
+                if issub_lale or their_str != "?":
+                    print(f"[[{lale_str}:{their_str}]]")
+        else:
+            r: Any = response
+            print(f"[SUB: {r.status}]: {r.body}")
+        return issub_lale
     except Exception as e:
         raise ValueError(
             f"unexpected internal error checking ({new_sub} <: {super_schema})"
