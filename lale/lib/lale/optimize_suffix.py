@@ -73,7 +73,7 @@ class _OptimizeSuffix:
         else:
             X_train_transformed = X_train
 
-        self.optimizer = self.optimizer.fit(X_train_transformed, y_train, **kwargs)
+        self._optimizer = self._optimizer.fit(X_train_transformed, y_train, **kwargs)
         return self
 
     def add_suffix(
@@ -116,7 +116,7 @@ class _OptimizeSuffix:
         result : Trained operator if best, trainable operator otherwise."""
         result = self.add_suffix(
             self._optimizer.get_pipeline(
-                pipeline_name=pipeline_name, asttype=astype, **kwargs
+                pipeline_name=pipeline_name, astype=astype, **kwargs
             )
         )
 
