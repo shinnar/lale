@@ -89,7 +89,7 @@ class _OptimizeSuffix:
         return trained
 
     def predict(self, X_eval, **kwargs):
-        pipeline = self.add_suffix(self.get_pipeline())
+        pipeline = self.get_pipeline()
         return pipeline.predict(X_eval, **kwargs)
 
     def summary(self, **kwargs):
